@@ -17,5 +17,5 @@ export const db = new PrismaClient({
 handlePrismaLogging({
   db,
   logger,
-  logLevels: ['info', 'warn', 'error'],
+  logLevels: ['info', 'warn', 'error', 'query'],
 })

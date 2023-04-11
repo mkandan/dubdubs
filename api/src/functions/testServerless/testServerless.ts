@@ -22,13 +22,49 @@ import { logger } from 'src/lib/logger'
 export const handler = async (event: APIGatewayEvent, _context: Context) => {
   logger.info(`${event.httpMethod} ${event.path}: testServerless function`)
 
-  return {
-    statusCode: 200,
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      data: 'testServerless function',
-    }),
+  if (event.httpMethod == 'POST') {
+    if (event.httpMethod == 'POST') {
+      return db
+        .$connect()
+        .then(() => {
+          console.log('connected')
+
+          return db.captions.create({
+            data: {
+              youtube_id: 'test',
+              history: [
+                {
+                  start: 0,
+                  end: 1,
+                  text: 'test',
+                },
+              ],
+            },
+          })
+        })
+        .then(() => {
+          db.$disconnect()
+
+          return {
+            statusCode: 200,
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              data: 'testServerless function',
+            }),
+          }
+        })
+        .catch((e) => {
+          console.log('error: ', e)
+          return {
+            statusCode: 400,
+          }
+        })
+    } else {
+      return {
+        statusCode: 400,
+      }
+    }
   }
 }
