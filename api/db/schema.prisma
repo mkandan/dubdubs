@@ -11,7 +11,7 @@ datasource db {
 model captions {
   id                          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   created_at                  DateTime @default(dbgenerated("(now() AT TIME ZONE 'utc'::text)")) @db.Timestamptz(6)
-  youtube_id                  String?
+  yt_video_id                 String?
   original_language           String   @default("en")
   available_caption_languages String[]
   status                      String   @default("queued")

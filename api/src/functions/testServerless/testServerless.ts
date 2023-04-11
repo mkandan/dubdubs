@@ -22,8 +22,36 @@ import { logger } from 'src/lib/logger'
 export const handler = async (event: APIGatewayEvent, _context: Context) => {
   logger.info(`${event.httpMethod} ${event.path}: testServerless function`)
 
+  /**
+   * validates youtube url against regex
+   * @param url includes https
+   * @returns boolean
+   */
+  function isValidYoutubeUrl(url: string): boolean {
+    const youtubeRegex =
+      /^(https?:\/\/)?(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})$/
+    return youtubeRegex.test(url)
+  }
+
   if (event.httpMethod == 'POST') {
-    if (event.httpMethod == 'POST') {
+    const body = JSON.parse(event.body)
+    const yt_url = body.yt_url as string
+    const isValid = isValidYoutubeUrl(yt_url)
+
+    if (!isValid) {
+      return {
+        statusCode: 400,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          error: 'invalid youtube link',
+        }),
+      }
+    } else {
+      // get youtube video id from url
+      const yt_video_id = yt_url.split('v=')[1]
+
       return db
         .$connect()
         .then(() => {
@@ -31,7 +59,7 @@ export const handler = async (event: APIGatewayEvent, _context: Context) => {
 
           return db.captions.create({
             data: {
-              youtube_id: 'test',
+              yt_video_id: yt_video_id,
               history: [
                 {
                   start: 0,
@@ -59,12 +87,24 @@ export const handler = async (event: APIGatewayEvent, _context: Context) => {
           console.log('error: ', e)
           return {
             statusCode: 400,
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              error: 'error',
+            }),
           }
         })
-    } else {
-      return {
-        statusCode: 400,
-      }
+    }
+  } else {
+    return {
+      statusCode: 400,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        error: 'error',
+      }),
     }
   }
 }

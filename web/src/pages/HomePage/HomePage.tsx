@@ -17,6 +17,25 @@ const ServerlessButton = () => {
   )
 }
 
+const FormToServerless = () => {
+  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    const formData = new FormData(event.target as HTMLFormElement)
+    const data = Object.fromEntries(formData)
+    axios.post('/.redwood/functions/testServerless', data).then((response) => {
+      console.log(response.data)
+    })
+  }
+
+  return (
+    <form onSubmit={(event) => handleSubmit(event)}>
+      <label htmlFor="yt_link">Youtube Link</label>
+      <input type="text" name="yt_link" />
+      <button type="submit">Submit</button>
+    </form>
+  )
+}
+
 const HomePage = () => {
   return (
     <>
@@ -26,7 +45,8 @@ const HomePage = () => {
       <p>
         Find me in <code>./web/src/pages/HomePage/HomePage.tsx</code>
       </p>
-      {ServerlessButton()}
+      {/* {ServerlessButton()} */}
+      {FormToServerless()}
       <p>
         My default route is named <code>home</code>, link to me with `
         <Link to={routes.home()}>Home</Link>`
