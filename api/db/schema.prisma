@@ -1,18 +1,32 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native"]
+}
+
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
-generator client {
-  provider      = "prisma-client-js"
-  binaryTargets = "native"
+model captions {
+  id                          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  created_at                  DateTime @default(dbgenerated("(now() AT TIME ZONE 'utc'::text)")) @db.Timestamptz(6)
+  youtube_id                  String?
+  original_language           String   @default("en")
+  available_caption_languages String[]
+  status                      String   @default("queued")
+  captions                    Json?
+  audio_file_status           String   @default("queued")
+  history                     Json[]
+  queue                       queue[]
 }
 
-// Define your own datamodels here and run `yarn redwood prisma migrate dev`
-// to create migrations for them and apply to your dev DB.
-// TODO: Please remove the following example:
-model UserExample {
-  id    Int     @id @default(autoincrement())
-  email String  @unique
-  name  String?
+model queue {
+  id          BigInt    @id @default(autoincrement())
+  created_at  DateTime? @default(dbgenerated("(now() AT TIME ZONE 'utc'::text)")) @db.Timestamptz(6)
+  captions_id String?   @db.Uuid
+  status      String    @default("queued")
+  path        String?
+  history     Json[]    @default([])
+  captions    captions? @relation(fields: [captions_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 }
