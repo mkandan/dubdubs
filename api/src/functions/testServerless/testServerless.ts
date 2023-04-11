@@ -1,8 +1,14 @@
 import type { APIGatewayEvent, Context } from 'aws-lambda'
+import { google } from 'googleapis'
 
 import { db } from 'src/lib/db'
 import { logger } from 'src/lib/logger'
 
+console.log('process.env.YOUTUBE_API_KEY: ', process.env.YOUTUBE_API_KEY)
+const yt = google.youtube({
+  version: 'v3',
+  auth: process.env.YOUTUBE_API_KEY,
+})
 /**
  * The handler function is your code that processes http request events.
  * You can use return and throw to send a response or error, respectively.
@@ -33,10 +39,48 @@ export const handler = async (event: APIGatewayEvent, _context: Context) => {
     return youtubeRegex.test(url)
   }
 
+  /**
+   * gets default language of youtube video
+   * NOTE! if no language is provided by uploader, it will return 'undefined'
+   * @param video_id
+   * @returns string
+   * @see https://developers.google.com/youtube/v3/docs/videos/list
+   * @see https://developers.google.com/youtube/v3/docs/videos#snippet.defaultLanguage
+   */
+  function getDefaultLanguage(video_id: string): string {
+    yt.videos.list(
+      {
+        part: ['snippet'],
+        id: [video_id],
+        prettyPrint: true,
+      },
+      (err, res) => {
+        if (err) {
+          console.log('error: ', err)
+          return
+        } else {
+          const videoSnippet = res.data.items[0].snippet
+          return videoSnippet.defaultLanguage
+        }
+      }
+    )
+    return
+  }
+
   if (event.httpMethod == 'POST') {
     const body = JSON.parse(event.body)
     const yt_url = body.yt_url as string
     const isValid = isValidYoutubeUrl(yt_url)
+
+    // return {
+    //   statusCode: 200,
+    //   headers: {
+    //     'Content-Type': 'application/json',
+    //   },
+    //   body: JSON.stringify({
+    //     data: 'testServerless function',
+    //   }),
+    // }
 
     if (!isValid) {
       return {
@@ -51,7 +95,9 @@ export const handler = async (event: APIGatewayEvent, _context: Context) => {
     } else {
       // get youtube video id from url
       const yt_video_id = yt_url.split('v=')[1]
+      const defaultLanguage = getDefaultLanguage(yt_video_id)
 
+      // write to db
       return db
         .$connect()
         .then(() => {
@@ -62,11 +108,10 @@ export const handler = async (event: APIGatewayEvent, _context: Context) => {
               yt_video_id: yt_video_id,
               history: [
                 {
-                  start: 0,
-                  end: 1,
-                  text: 'test',
+                  created_at: new Date().toUTCString(),
                 },
               ],
+              original_language: defaultLanguage,
             },
           })
         })

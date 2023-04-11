@@ -29,8 +29,8 @@ const FormToServerless = () => {
 
   return (
     <form onSubmit={(event) => handleSubmit(event)}>
-      <label htmlFor="yt_link">Youtube Link</label>
-      <input type="text" name="yt_link" />
+      <label htmlFor="yt_url">Youtube URL</label>
+      <input type="text" name="yt_url" />
       <button type="submit">Submit</button>
     </form>
   )
