@@ -7,5 +7,7 @@
   },
   "[prisma]": {
     "editor.formatOnSave": true
-  }
+  },
+  "deno.enable": true,
+  "deno.unstable": true
 }
