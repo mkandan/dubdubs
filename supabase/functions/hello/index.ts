@@ -9,7 +9,7 @@ console.log('Hello asdfasfafasfa from Functions!')
 serve(async (req) => {
   const { name } = await req.json()
   const data = {
-    message: `Hello CURLED ${name}!`,
+    message: `Hello CURLEDxx ${name}!`,
   }
 
   return new Response(JSON.stringify(data), {
