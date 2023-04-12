@@ -1,4 +1,4 @@
-import { PrismaClient } from '.prisma/client'
+import { PrismaClient, type audio } from '.prisma/client'
 import type { APIGatewayEvent, Context } from 'aws-lambda'
 import { google } from 'googleapis'
 
@@ -70,13 +70,13 @@ export const handler = async (event: APIGatewayEvent, _context: Context) => {
   }
 
   /**
-   * either creates or updates video in database if it exists/dne
+   * either fetches caption's content or queues jobs to generate caption
    * @param db prisma client
    * @param yt_id unique youtube video id
    * @param defaultLanguage result from YouTube API call on video id
-   * @returns new or updated video row
+   * @returns caption's content or { status: 'queued' }
    */
-  async function createOrUpdateVideo(
+  async function fetchCaptionsOrQueueJobs(
     db: PrismaClient<
       { log: { level: LogLevel; emit: 'stdout' | 'event' }[] },
       never,
@@ -99,126 +99,71 @@ export const handler = async (event: APIGatewayEvent, _context: Context) => {
         language: desiredLanguage,
         status: { not: 'failed' },
         audio: {
-          videos: {
-            id: yt_id,
-          },
+          video_id: yt_id,
         },
       },
     })
     console.log('captionExists: ', captionExists)
 
-    // if video DNE, audio also DNE. create queue jobs for download_audio and generate_captions & prepare empty audio + captions + video rows
-    if (!videoExists) {
-      // prepare empty video
-      return db.videos
-        .create({
+    if (captionExists) {
+      return captionExists.content
+    } else {
+      // since caption DNE, first check if audio exists for video_id/yt_id
+      const audioExists = await db.audio.findFirst({
+        where: {
+          video_id: yt_id,
+        },
+      })
+
+      let audio: audio
+      if (!audioExists) {
+        // since audio DNE, need to 1. init audio row, 2. (serverless) download audio
+        // 1. init audio row
+        audio = await db.audio.create({
           data: {
-            id: yt_id,
-            default_language: defaultLanguage,
-            history: {
-              created_at: new Date().toUTCString(),
+            video_id: yt_id,
+            history: [{ created_at: new Date().toUTCString() }],
+          },
+        })
+        // 2. queue download_audio job
+        const downloadAudioJob = await db.queue.create({
+          data: {
+            video_id: yt_id,
+            status: 'queued',
+            history: [
+              { created_at: new Date().toUTCString() },
+              { queued_at: new Date().toUTCString() },
+            ],
+            job_details: {
+              type: 'download_audio',
+              audio_id: audio.id,
+              language: defaultLanguage,
             },
           },
         })
-        .then((video) => {
-          // create queue jobs
-          db.queue
-            .create({
-              data: {
-                desired_language: desiredLanguage,
-                history: {
-                  created_at: new Date().toUTCString(),
-                },
-                job: 'download_audio',
-                videos: {
-                  connect: {
-                    id: video.id,
-                  },
-                },
-              },
-            })
-            .then((downloadJob) => {
-              // prepare empty audio
-              db.audio
-                .create({
-                  data: {
-                    history: [
-                      {
-                        created_at: new Date().toUTCString(),
-                      },
-                      {
-                        download_queued_at:
-                          downloadJob.created_at.toUTCString(),
-                      },
-                    ],
-                    language: desiredLanguage,
-                    videos: {
-                      connect: {
-                        id: yt_id,
-                      },
-                    },
-                  },
-                })
-                .then((audio) => {
-                  db.queue
-                    .create({
-                      data: {
-                        desired_language: desiredLanguage,
-                        history: {
-                          created_at: new Date().toUTCString(),
-                        },
-                        job: 'generate_captions',
-                        videos: {
-                          connect: {
-                            id: video.id,
-                          },
-                        },
-                        status: 'queued',
-                      },
-                    })
-                    .then((generateCaptionsJob) => {
-                      // prepare empty captions
-                      console.log('here2')
-                      db.captions
-                        .create({
-                          data: {
-                            history: [
-                              {
-                                created_at: new Date().toUTCString(),
-                              },
-                              {
-                                generate_queued_at:
-                                  generateCaptionsJob.created_at.toUTCString(),
-                              },
-                            ],
-                            language: desiredLanguage,
-                            status: 'queued',
-                            audio: {
-                              connect: {
-                                id: audio.id,
-                              },
-                            },
-                          },
-                        })
-                        .finally(() => {
-                          console.log('done1!')
-                        })
-                    })
-                })
-            })
-        })
-    } else {
-      return db.videos.update({
+      }
+      // since audio (now) exists, need to generate caption. queue generate_captions job
+      // 3. queue generate_captions job
+      const generateCaptionsJob = await db.queue.create({
         data: {
-          default_language: defaultLanguage,
-          history: videoExists.history.concat({
-            updated_at: new Date().toUTCString(),
-          }),
-        },
-        where: {
-          id: yt_id,
+          video_id: yt_id,
+          status: 'queued',
+          history: [
+            { created_at: new Date().toUTCString() },
+            { queued_at: new Date().toUTCString() },
+          ],
+          job_details: {
+            type: 'generate_captions',
+            audio_id: audio.id,
+            caption_id: null, // to be replaced after captions are generated
+            desired_language: desiredLanguage,
+          },
         },
       })
+      // finally, return a json object with status: 'queued'
+      return {
+        status: 'queued',
+      }
     }
   }
 
@@ -243,10 +188,11 @@ export const handler = async (event: APIGatewayEvent, _context: Context) => {
       const yt_id = yt_url.split('v=')[1]
       const yt_default_language = getDefaultLanguage(yt_id)
 
+      let captions: Prisma.JsonValue[] | { status: string }
       return db
         .$connect()
         .then(async () => {
-          const video = await createOrUpdateVideo(
+          captions = await fetchCaptionsOrQueueJobs(
             db,
             yt_id,
             yt_default_language,
@@ -261,7 +207,8 @@ export const handler = async (event: APIGatewayEvent, _context: Context) => {
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              data: 'success!',
+              status: 'success!',
+              captions: captions,
             }),
           }
         })
