@@ -70,7 +70,8 @@ export const handler = async (event: APIGatewayEvent, _context: Context) => {
   }
 
   /**
-   * either fetches caption's content or queues jobs to generate caption
+   * either fetches caption's content or queues jobs to generate caption.
+   * FYI: if caption exists, then video exists. if video exists, audio exists. if caption DNE, video exists/DNE. if video exists/DNE, audio exists/DNE.
    * @param db prisma client
    * @param yt_id unique youtube video id
    * @param defaultLanguage result from YouTube API call on video id
@@ -86,18 +87,9 @@ export const handler = async (event: APIGatewayEvent, _context: Context) => {
     defaultLanguage: string,
     desiredLanguage: string
   ) {
-    const videoExists = await db.videos.findFirst({
-      where: {
-        id: yt_id,
-      },
-    })
-
-    // if caption exists, then video exists. if video exists, audio exists.
-    // if caption DNE, video exists/DNE. if video exists/DNE, audio exists/DNE.
     const captionExists = await db.captions.findFirst({
       where: {
         language: desiredLanguage,
-        status: { not: 'failed' },
         audio: {
           video_id: yt_id,
         },
@@ -136,13 +128,13 @@ export const handler = async (event: APIGatewayEvent, _context: Context) => {
             ],
             job_details: {
               type: 'download_audio',
-              audio_id: audio.id,
+              audio_id: `${audioExists ? `${audioExists.id}` : `${audio.id}`}`,
               language: defaultLanguage,
             },
           },
         })
       }
-      // since audio (now) exists, need to generate caption. queue generate_captions job
+      // since audio row (now) exists, need to 3. (serverless) generate captions
       // 3. queue generate_captions job
       const generateCaptionsJob = await db.queue.create({
         data: {
@@ -155,7 +147,6 @@ export const handler = async (event: APIGatewayEvent, _context: Context) => {
           job_details: {
             type: 'generate_captions',
             audio_id: audio.id,
-            caption_id: null, // to be replaced after captions are generated
             desired_language: desiredLanguage,
           },
         },

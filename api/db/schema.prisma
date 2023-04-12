@@ -15,7 +15,6 @@ model captions {
   audio_id   String?   @db.Uuid
   language   String?
   content    Json[]    @default([])
-  status     String?   @default("queued")
   audio      audio?    @relation(fields: [audio_id], references: [id], onDelete: SetDefault, onUpdate: NoAction)
 }
 
