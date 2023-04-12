@@ -1,5 +1,8 @@
+import { PrismaClient } from '.prisma/client'
 import type { APIGatewayEvent, Context } from 'aws-lambda'
 import { google } from 'googleapis'
+
+import { LogLevel } from '@redwoodjs/api/dist/logger'
 
 import { db } from 'src/lib/db'
 import { logger } from 'src/lib/logger'
@@ -67,24 +70,44 @@ export const handler = async (event: APIGatewayEvent, _context: Context) => {
     return
   }
 
-  // function that checks if video_id exists in db.videos and returns row if it does exist or null if it doesn't
-  async function videoExists(video_id: string): Promise<boolean> {
-    return db.$connect().then(async () => {
-      return await db.videos
-        .findUnique({
-          where: {
-            id: video_id,
-          },
-        })
-        .then((video) => {
-          db.$disconnect()
-          if (video) {
-            return true
-          } else {
-            return false
-          }
-        })
+  const createOrUpdateVideo = async (
+    db: PrismaClient<
+      { log: { level: LogLevel; emit: 'stdout' | 'event' }[] },
+      never,
+      false
+    >,
+    yt_id: string,
+    defaultLanguage: string
+  ) => {
+    const videoExists = await db.videos.findFirst({
+      where: {
+        id: yt_id,
+      },
     })
+    if (!videoExists) {
+      return db.videos.create({
+        data: {
+          id: yt_id,
+          default_language: defaultLanguage,
+          history: {
+            created_at: new Date().toUTCString(),
+          },
+        },
+      })
+    } else {
+      // console.log('videoExists: ', videoExists)
+      return db.videos.update({
+        data: {
+          default_language: defaultLanguage,
+          history: videoExists.history.concat({
+            updated_at: new Date().toUTCString(),
+          }),
+        },
+        where: {
+          id: yt_id,
+        },
+      })
+    }
   }
 
   if (event.httpMethod == 'POST') {
@@ -106,40 +129,12 @@ export const handler = async (event: APIGatewayEvent, _context: Context) => {
     } else {
       // get youtube video id from url
       const yt_id = yt_url.split('v=')[1]
-      const defaultLanguage = getDefaultLanguage(yt_id)
+      const yt_default_language = getDefaultLanguage(yt_id)
 
       return db
         .$connect()
         .then(async () => {
-          const videoExists = await db.videos.findFirst({
-            where: {
-              id: yt_id,
-            },
-          })
-          if (!videoExists) {
-            return db.videos.create({
-              data: {
-                id: yt_id,
-                default_language: defaultLanguage,
-                history: {
-                  created_at: new Date().toUTCString(),
-                },
-              },
-            })
-          } else {
-            // console.log('videoExists: ', videoExists)
-            return db.videos.update({
-              data: {
-                default_language: defaultLanguage,
-                history: videoExists.history.concat({
-                  updated_at: new Date().toUTCString(),
-                }),
-              },
-              where: {
-                id: yt_id,
-              },
-            })
-          }
+          await createOrUpdateVideo(db, yt_id, yt_default_language)
         })
         .then(() => {
           db.$disconnect()
@@ -153,55 +148,6 @@ export const handler = async (event: APIGatewayEvent, _context: Context) => {
             }),
           }
         })
-
-      // write to db
-      // return db
-      //   .$connect()
-      //   .then(() => {
-      //     console.log('connected')
-      //     return db.videos.upsert({
-      //       create: {
-      //         id: yt_id,
-      //         default_language: defaultLanguage,
-      //         history: {
-      //           created_at: new Date().toUTCString(),
-      //         },
-      //       },
-      //       update: {
-      //         history: {
-      //           updated_at: new Date().toUTCString(),
-      //         },
-      //       },
-      //       where: {
-      //         id: yt_id,
-      //       },
-      //     })
-      //   })
-      //   .then(() => {
-      //     db.$disconnect()
-
-      //     return {
-      //       statusCode: 200,
-      //       headers: {
-      //         'Content-Type': 'application/json',
-      //       },
-      //       body: JSON.stringify({
-      //         data: 'testServerless function',
-      //       }),
-      //     }
-      //   })
-      //   .catch((e) => {
-      //     console.log('error: ', e)
-      // return {
-      //   statusCode: 400,
-      //   headers: {
-      //     'Content-Type': 'application/json',
-      //   },
-      //   body: JSON.stringify({
-      //     error: 'error',
-      //   }),
-      // }
-      // })
     }
   } else {
     return {
