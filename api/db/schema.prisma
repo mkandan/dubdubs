@@ -26,6 +26,7 @@ model queue {
   history          Json[]    @default([])
   video_id         String?
   desired_language String    @default("en")
+  job              String?
   videos           videos?   @relation(fields: [video_id], references: [id], onDelete: SetDefault, onUpdate: NoAction)
 }
 

@@ -7,7 +7,6 @@ import { LogLevel } from '@redwoodjs/api/dist/logger'
 import { db } from 'src/lib/db'
 import { logger } from 'src/lib/logger'
 
-console.log('process.env.YOUTUBE_API_KEY: ', process.env.YOUTUBE_API_KEY)
 const yt = google.youtube({
   version: 'v3',
   auth: process.env.YOUTUBE_API_KEY,
@@ -70,32 +69,129 @@ export const handler = async (event: APIGatewayEvent, _context: Context) => {
     return
   }
 
-  const createOrUpdateVideo = async (
+  /**
+   * either creates or updates video in database if it exists/dne
+   * @param db prisma client
+   * @param yt_id unique youtube video id
+   * @param defaultLanguage result from YouTube API call on video id
+   * @returns new or updated video row
+   */
+  async function createOrUpdateVideo(
     db: PrismaClient<
       { log: { level: LogLevel; emit: 'stdout' | 'event' }[] },
       never,
       false
     >,
     yt_id: string,
-    defaultLanguage: string
-  ) => {
+    defaultLanguage: string,
+    desiredLanguage: string
+  ) {
     const videoExists = await db.videos.findFirst({
       where: {
         id: yt_id,
       },
     })
+    // if video DNE, audio also DNE. create queue jobs for download_audio and generate_captions & prepare empty audio + captions + video rows
     if (!videoExists) {
-      return db.videos.create({
-        data: {
-          id: yt_id,
-          default_language: defaultLanguage,
-          history: {
-            created_at: new Date().toUTCString(),
+      // prepare empty video
+      return db.videos
+        .create({
+          data: {
+            id: yt_id,
+            default_language: defaultLanguage,
+            history: {
+              created_at: new Date().toUTCString(),
+            },
           },
-        },
-      })
+        })
+        .then((video) => {
+          // create queue jobs
+          db.queue
+            .create({
+              data: {
+                desired_language: desiredLanguage,
+                history: {
+                  created_at: new Date().toUTCString(),
+                },
+                job: 'download_audio',
+                videos: {
+                  connect: {
+                    id: video.id,
+                  },
+                },
+              },
+            })
+            .then((downloadJob) => {
+              // prepare empty audio
+              db.audio
+                .create({
+                  data: {
+                    history: [
+                      {
+                        created_at: new Date().toUTCString(),
+                      },
+                      {
+                        download_queued_at:
+                          downloadJob.created_at.toUTCString(),
+                      },
+                    ],
+                    language: desiredLanguage,
+                    videos: {
+                      connect: {
+                        id: yt_id,
+                      },
+                    },
+                  },
+                })
+                .then((audio) => {
+                  db.queue
+                    .create({
+                      data: {
+                        desired_language: desiredLanguage,
+                        history: {
+                          created_at: new Date().toUTCString(),
+                        },
+                        job: 'generate_captions',
+                        videos: {
+                          connect: {
+                            id: video.id,
+                          },
+                        },
+                        status: 'queued',
+                      },
+                    })
+                    .then((generateCaptionsJob) => {
+                      // prepare empty captions
+                      console.log('here2')
+                      db.captions
+                        .create({
+                          data: {
+                            history: [
+                              {
+                                created_at: new Date().toUTCString(),
+                              },
+                              {
+                                generate_queued_at:
+                                  generateCaptionsJob.created_at.toUTCString(),
+                              },
+                            ],
+                            language: desiredLanguage,
+                            status: 'queued',
+                            audio: {
+                              connect: {
+                                id: audio.id,
+                              },
+                            },
+                          },
+                        })
+                        .finally(() => {
+                          console.log('done1!')
+                        })
+                    })
+                })
+            })
+        })
     } else {
-      // console.log('videoExists: ', videoExists)
       return db.videos.update({
         data: {
           default_language: defaultLanguage,
@@ -134,7 +230,12 @@ export const handler = async (event: APIGatewayEvent, _context: Context) => {
       return db
         .$connect()
         .then(async () => {
-          await createOrUpdateVideo(db, yt_id, yt_default_language)
+          const video = await createOrUpdateVideo(
+            db,
+            yt_id,
+            yt_default_language,
+            desired_language
+          )
         })
         .then(() => {
           db.$disconnect()
@@ -144,7 +245,7 @@ export const handler = async (event: APIGatewayEvent, _context: Context) => {
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              data: 'testServerless function',
+              data: 'success!',
             }),
           }
         })
