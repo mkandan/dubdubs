@@ -3,20 +3,6 @@ import axios from 'axios'
 import { Link, routes } from '@redwoodjs/router'
 import { MetaTags } from '@redwoodjs/web'
 
-const ServerlessButton = () => {
-  return (
-    <button
-      onClick={() => {
-        axios.post('/.redwood/functions/testServerless').then((response) => {
-          console.log(response.data)
-        })
-      }}
-    >
-      Test me!
-    </button>
-  )
-}
-
 const FormToServerless = () => {
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -30,7 +16,12 @@ const FormToServerless = () => {
   return (
     <form onSubmit={(event) => handleSubmit(event)}>
       <label htmlFor="yt_url">Youtube URL</label>
-      <input type="text" name="yt_url" />
+      <input type="text" name="yt_url" required />
+      <select name="desired_language" defaultValue={'en'}>
+        <option value="en">English</option>
+        <option value="es">Spanish</option>
+        <option value="fr">French</option>
+      </select>
       <button type="submit">Submit</button>
     </form>
   )
@@ -45,7 +36,6 @@ const HomePage = () => {
       <p>
         Find me in <code>./web/src/pages/HomePage/HomePage.tsx</code>
       </p>
-      {/* {ServerlessButton()} */}
       {FormToServerless()}
       <p>
         My default route is named <code>home</code>, link to me with `

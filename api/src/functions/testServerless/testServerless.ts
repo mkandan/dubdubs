@@ -67,20 +67,31 @@ export const handler = async (event: APIGatewayEvent, _context: Context) => {
     return
   }
 
+  // function that checks if video_id exists in db.videos and returns row if it does exist or null if it doesn't
+  async function videoExists(video_id: string): Promise<boolean> {
+    return db.$connect().then(async () => {
+      return await db.videos
+        .findUnique({
+          where: {
+            id: video_id,
+          },
+        })
+        .then((video) => {
+          db.$disconnect()
+          if (video) {
+            return true
+          } else {
+            return false
+          }
+        })
+    })
+  }
+
   if (event.httpMethod == 'POST') {
     const body = JSON.parse(event.body)
     const yt_url = body.yt_url as string
+    const desired_language = body.desired_language as string
     const isValid = isValidYoutubeUrl(yt_url)
-
-    // return {
-    //   statusCode: 200,
-    //   headers: {
-    //     'Content-Type': 'application/json',
-    //   },
-    //   body: JSON.stringify({
-    //     data: 'testServerless function',
-    //   }),
-    // }
 
     if (!isValid) {
       return {
@@ -94,30 +105,44 @@ export const handler = async (event: APIGatewayEvent, _context: Context) => {
       }
     } else {
       // get youtube video id from url
-      const yt_video_id = yt_url.split('v=')[1]
-      const defaultLanguage = getDefaultLanguage(yt_video_id)
+      const yt_id = yt_url.split('v=')[1]
+      const defaultLanguage = getDefaultLanguage(yt_id)
 
-      // write to db
       return db
         .$connect()
-        .then(() => {
-          console.log('connected')
-
-          return db.captions.create({
-            data: {
-              yt_video_id: yt_video_id,
-              history: [
-                {
-                  created_at: new Date().toUTCString(),
-                },
-              ],
-              original_language: defaultLanguage,
+        .then(async () => {
+          const videoExists = await db.videos.findFirst({
+            where: {
+              id: yt_id,
             },
           })
+          if (!videoExists) {
+            return db.videos.create({
+              data: {
+                id: yt_id,
+                default_language: defaultLanguage,
+                history: {
+                  created_at: new Date().toUTCString(),
+                },
+              },
+            })
+          } else {
+            // console.log('videoExists: ', videoExists)
+            return db.videos.update({
+              data: {
+                default_language: defaultLanguage,
+                history: videoExists.history.concat({
+                  updated_at: new Date().toUTCString(),
+                }),
+              },
+              where: {
+                id: yt_id,
+              },
+            })
+          }
         })
         .then(() => {
           db.$disconnect()
-
           return {
             statusCode: 200,
             headers: {
@@ -128,18 +153,55 @@ export const handler = async (event: APIGatewayEvent, _context: Context) => {
             }),
           }
         })
-        .catch((e) => {
-          console.log('error: ', e)
-          return {
-            statusCode: 400,
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              error: 'error',
-            }),
-          }
-        })
+
+      // write to db
+      // return db
+      //   .$connect()
+      //   .then(() => {
+      //     console.log('connected')
+      //     return db.videos.upsert({
+      //       create: {
+      //         id: yt_id,
+      //         default_language: defaultLanguage,
+      //         history: {
+      //           created_at: new Date().toUTCString(),
+      //         },
+      //       },
+      //       update: {
+      //         history: {
+      //           updated_at: new Date().toUTCString(),
+      //         },
+      //       },
+      //       where: {
+      //         id: yt_id,
+      //       },
+      //     })
+      //   })
+      //   .then(() => {
+      //     db.$disconnect()
+
+      //     return {
+      //       statusCode: 200,
+      //       headers: {
+      //         'Content-Type': 'application/json',
+      //       },
+      //       body: JSON.stringify({
+      //         data: 'testServerless function',
+      //       }),
+      //     }
+      //   })
+      //   .catch((e) => {
+      //     console.log('error: ', e)
+      // return {
+      //   statusCode: 400,
+      //   headers: {
+      //     'Content-Type': 'application/json',
+      //   },
+      //   body: JSON.stringify({
+      //     error: 'error',
+      //   }),
+      // }
+      // })
     }
   } else {
     return {
