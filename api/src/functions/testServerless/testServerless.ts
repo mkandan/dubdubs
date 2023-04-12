@@ -91,6 +91,22 @@ export const handler = async (event: APIGatewayEvent, _context: Context) => {
         id: yt_id,
       },
     })
+
+    // if caption exists, then video exists. if video exists, audio exists.
+    // if caption DNE, video exists/DNE. if video exists/DNE, audio exists/DNE.
+    const captionExists = await db.captions.findFirst({
+      where: {
+        language: desiredLanguage,
+        status: { not: 'failed' },
+        audio: {
+          videos: {
+            id: yt_id,
+          },
+        },
+      },
+    })
+    console.log('captionExists: ', captionExists)
+
     // if video DNE, audio also DNE. create queue jobs for download_audio and generate_captions & prepare empty audio + captions + video rows
     if (!videoExists) {
       // prepare empty video
