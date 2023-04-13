@@ -32,7 +32,6 @@ model audio {
   created_at DateTime?  @default(now()) @db.Timestamptz(6)
   history    Json[]     @default([])
   language   String     @default("undefined")
-  file_path  String?
   video_id   String?
   captions   captions[]
 }
