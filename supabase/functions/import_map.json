@@ -1,7 +1,5 @@
 {
-  "imports": {
-    "googleapis": "https://esm.sh/v115/*googleapis@117.0.0"
-  },
+  "imports": {},
   "scopes": {
     "https://esm.sh/v115/": {
       "google-auth-library": "https://esm.sh/v115/google-auth-library@8.7.0",

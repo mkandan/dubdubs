@@ -2,13 +2,12 @@
 // https://deno.land/manual/getting_started/setup_your_environment
 // This enables autocomplete, go to definition, etc.
 
-import { google } from 'googleapis'
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.20.0'
 
 import { corsHeaders } from '../_shared/cors.ts'
 
 console.log(`Function "browser-with-cors" up and running!`)
-console.log(Deno.env.get('YOUTUBE_API_KEY'))
 
 serve(async (req) => {
   // This is needed if you're planning to invoke your function from a browser.
@@ -16,11 +15,52 @@ serve(async (req) => {
     return new Response('ok', { headers: corsHeaders })
   }
 
+  if (req.method == 'POST') {
+    // const body = await req.json()
+    // const yt_url = body.yt_url as string
+    // const desired_language = body.desired_language as string
+
+    // // get youtube video id from url
+    // const yt_id = yt_url.split('v=')[1]
+
+    try {
+      const supabase = createClient(
+        Deno.env.get('Z_SUPABASE_URL') ?? '',
+        Deno.env.get('Z_SUPABASE_API_KEY') ?? ''
+      )
+
+      const { data: captions_data, error: captions_error } = await supabase
+        .from('captions')
+        .select('*')
+      if (captions_error) {
+        return new Response(JSON.stringify({ error: captions_error.message }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 400,
+        })
+      } else {
+        const { name } = await req.json()
+        const data = {
+          message: `Hello ${name}!`,
+          captions_data: captions_data,
+        }
+
+        return new Response(JSON.stringify(data), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200,
+        })
+      }
+    } catch (error) {
+      return new Response(JSON.stringify({ error: error.message }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 400,
+      })
+    }
+  }
+
   try {
     const { name } = await req.json()
     const data = {
       message: `Hello ${name}!`,
-      YOUR_API_KEY: Deno.env.get('YOUTUBE_API_KEY'),
     }
 
     return new Response(JSON.stringify(data), {
