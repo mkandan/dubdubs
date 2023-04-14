@@ -17,6 +17,19 @@ serve(async (req) => {
   }
 
   if (req.method == 'POST') {
+    console.table([
+      { key: 'Z_SUPABASE_URL', value: Deno.env.get('Z_SUPABASE_URL') ?? '' },
+      {
+        key: 'Z_SUPABASE_ANON_KEY',
+        value: Deno.env.get('Z_SUPABASE_ANON_KEY') ?? '',
+      },
+      { key: 'SUPABASE_URL', value: Deno.env.get('SUPABASE_URL') ?? '' },
+      {
+        key: 'SUPABASE_ANON_KEY',
+        value: Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      },
+    ])
+
     // const body = await req.json()
     // const yt_url = body.yt_url as string
     // const desired_language = body.desired_language as string
