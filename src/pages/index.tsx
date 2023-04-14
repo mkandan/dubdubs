@@ -8,15 +8,15 @@ const Home: NextPage = () => {
     console.log('clicked brain at: ', new Date().toLocaleString())
     axios
       .post(
-        // 'http://localhost:54321/functions/v1/brain', // local
-        'https://tpqbderafyftvmrhrdht.functions.supabase.co/brain', // prod
+        'http://localhost:54321/functions/v1/brain', // local
+        // 'https://tpqbderafyftvmrhrdht.functions.supabase.co/brain', // prod
         {
           name: 'Functions',
         },
         {
           headers: {
-            // Authorization: `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0`, // local
-            Authorization: `Bearer ${env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`, // prod
+            Authorization: `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0`, // local
+            // Authorization: `Bearer ${env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`, // prod
             'Content-Type': 'application/json',
           },
         },
