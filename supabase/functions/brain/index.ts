@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 // Follow this setup guide to integrate the Deno language server with your editor:
 // https://deno.land/manual/getting_started/setup_your_environment
 // This enables autocomplete, go to definition, etc.
@@ -26,7 +27,7 @@ serve(async (req) => {
     try {
       const supabase = createClient(
         Deno.env.get('Z_SUPABASE_URL') ?? '',
-        Deno.env.get('Z_SUPABASE_API_KEY') ?? '',
+        Deno.env.get('Z_SUPABASE_ANON_KEY') ?? '',
       )
 
       const { data: captions_data, error: captions_error } = await supabase
@@ -61,6 +62,10 @@ serve(async (req) => {
     const { name } = await req.json()
     const data = {
       message: `Hello ${name}!`,
+      // SUPABASE_URL: Deno.env.get('SUPABASE_URL') ?? '',
+      // SUPABASE_ANON_KEY: Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      // Z_SUPABASE_URL: Deno.env.get('Z_SUPABASE_URL') ?? '',
+      // Z_SUPABASE_ANON_KEY: Deno.env.get('Z_SUPABASE_ANON_KEY') ?? '',
     }
 
     return new Response(JSON.stringify(data), {
@@ -80,7 +85,7 @@ curl -i --location --request POST 'http://localhost:54321/functions/v1/brain' \
   --header 'Content-Type: application/json' \
   --data '{"name":"Functions"}'
 curl -i --location --request POST 'https://tpqbderafyftvmrhrdht.functions.supabase.co/brain' \
-  --header 'Authorization: Bearer process.env.SUPABASE_API_KEY' \
+  --header 'Authorization: Bearer process.env.SUPABASE_ANON_KEY' \
   --header 'Content-Type: application/json' \
   --data '{"name":"Functions"}'
    */
