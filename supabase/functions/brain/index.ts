@@ -26,7 +26,7 @@ serve(async (req) => {
     try {
       const supabase = createClient(
         Deno.env.get('Z_SUPABASE_URL') ?? '',
-        Deno.env.get('Z_SUPABASE_API_KEY') ?? ''
+        Deno.env.get('Z_SUPABASE_API_KEY') ?? '',
       )
 
       const { data: captions_data, error: captions_error } = await supabase
