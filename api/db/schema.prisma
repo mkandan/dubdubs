@@ -9,13 +9,13 @@ datasource db {
 }
 
 model captions {
-  id         String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  created_at DateTime? @default(dbgenerated("(now() AT TIME ZONE 'utc'::text)")) @db.Timestamptz(6)
-  history    Json[]    @default([])
-  audio_id   String?   @db.Uuid
-  language   String?
-  content    Json[]    @default([])
-  audio      audio?    @relation(fields: [audio_id], references: [id], onDelete: SetDefault, onUpdate: NoAction)
+  id                   String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  created_at           DateTime? @default(dbgenerated("(now() AT TIME ZONE 'utc'::text)")) @db.Timestamptz(6)
+  history              Json[]    @default([])
+  audio_id             String?   @db.Uuid
+  language             String?
+  timestamped_captions Json[]    @default([])
+  audio                audio?    @relation(fields: [audio_id], references: [id], onDelete: SetDefault, onUpdate: NoAction)
 }
 
 model queue {

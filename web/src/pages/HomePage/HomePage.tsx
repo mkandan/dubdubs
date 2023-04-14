@@ -27,6 +27,33 @@ const FormToServerless = () => {
   )
 }
 
+const handleBrain = () => {
+  console.log('clicked brain at: ', new Date().toLocaleString())
+  axios
+    .post(
+      'http://localhost:54321/functions/v1/brain',
+      // 'https://tpqbderafyftvmrhrdht.functions.supabase.co/brain',
+      {
+        name: 'Functions',
+      },
+      {
+        headers: {
+          Authorization: `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0`,
+          // Authorization: `Bearer ${process.env.SUPABASE_API_KEY}`,
+          'Content-Type': 'application/json',
+          // 'Access-Control-Allow-Origin': '*',
+          // 'Access-Control-Allow-Headers': 'Access-Control-Allow-Origin',
+        },
+      }
+    )
+    .then((response) => {
+      console.log(response.data)
+    })
+    .catch((error) => {
+      console.error(error)
+    })
+}
+
 const HomePage = () => {
   return (
     <>
@@ -36,7 +63,10 @@ const HomePage = () => {
       <p>
         Find me in <code>./web/src/pages/HomePage/HomePage.tsx</code>
       </p>
-      {FormToServerless()}
+      {/* {FormToServerless()} */}
+      <button onClick={() => handleBrain()}>
+        Supabase edge function "brain"
+      </button>
       <p>
         My default route is named <code>home</code>, link to me with `
         <Link to={routes.home()}>Home</Link>`

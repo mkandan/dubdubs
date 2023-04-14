@@ -98,7 +98,7 @@ export const handler = async (event: APIGatewayEvent, _context: Context) => {
     console.log('captionExists: ', captionExists)
 
     if (captionExists) {
-      return captionExists.content
+      return captionExists.timestamped_captions
     } else {
       // since caption DNE, first check if audio exists for video_id/yt_id
       const audioExists = await db.audio.findFirst({
