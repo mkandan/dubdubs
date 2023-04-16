@@ -11,7 +11,11 @@ const Home: NextPage = () => {
         'http://localhost:54321/functions/v1/brain', // local
         // 'https://tpqbderafyftvmrhrdht.functions.supabase.co/brain', // prod
         {
-          name: 'Functions',
+          // yt_url: 'https://www.youtube.com/watch?v=gGZmi3UVSOI',
+          yt_url: 'https://www.youtube.com/watch?v=u7j--YMXZtA', // french mbappe song
+          // yt_url:
+          //   'https://www.youtube.com/watch?v=u7j--YMXZtA&list=RDu7j--YMXZtA', // youtube mix
+          desired_language: 'en',
         },
         {
           headers: {
@@ -41,7 +45,7 @@ const Home: NextPage = () => {
           className="p-6 bg-white rounded-lg"
           onClick={() => handleEdgeFunction()}
         >
-          🧠
+          🧠 on {process.env.NODE_ENV}
         </button>
       </main>
     </>
