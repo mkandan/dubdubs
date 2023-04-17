@@ -3,11 +3,17 @@
   "name": "DubsDubs",
   "version": "1.0.0",
   "description": "Adds custom subtitles to YouTube's default subtitle interface",
-  "permissions": ["*://*.youtube.com/*"],
+  "permissions": [
+    "https://www.youtube.com/*",
+    "https://tpqbderafyftvmrhrdht.supabase.co/*",
+    "https://tpqbderafyftvmrhrdht.functions.supabase.co/*"
+  ],
   "content_scripts": [
     {
-      "matches": ["*://*.youtube.com/*"],
-      "js": ["content.js"]
+      "matches": ["https://www.youtube.com/*"],
+      "js": ["content.js"],
+      "css": ["content.css"],
+      "run_at": "document_idle"
     }
   ],
   "web_accessible_resources": ["index.html"]
