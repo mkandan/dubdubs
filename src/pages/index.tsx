@@ -42,7 +42,7 @@ const Home: NextPage = () => {
       </Head>
       <main className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-[#2e026d] to-[#15162c]">
         <button
-          className="p-6 bg-white rounded-lg"
+          className="rounded-lg bg-white p-6"
           onClick={() => handleEdgeFunction()}
         >
           🧠 on {process.env.NODE_ENV}

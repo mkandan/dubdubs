@@ -4,9 +4,9 @@
 // This enables autocomplete, go to definition, etc.
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.20.0'
 
 import { corsHeaders } from '../_shared/cors.ts'
+import { supabase } from '../_shared/supabaseClient.ts'
 
 console.log(`Function "browser-with-cors" up and running!`)
 
@@ -17,13 +17,13 @@ serve(async (req) => {
   }
 
   if (req.method == 'POST') {
-    let supabase_url = Deno.env.get('Z_SUPABASE_URL') ?? ''
-    let supabase_anon_key = Deno.env.get('Z_SUPABASE_ANON_KEY') ?? ''
-    const checkDeployed = Deno.env.get('DENO_DEPLOYMENT_ID') ?? ''
-    if (checkDeployed.startsWith('tpqbderafyftvmrhrdht')) {
-      supabase_url = Deno.env.get('SUPABASE_URL') ?? supabase_url
-      supabase_anon_key = Deno.env.get('SUPABASE_ANON_KEY') ?? supabase_anon_key
-    }
+    // let supabase_url = Deno.env.get('Z_SUPABASE_URL') ?? ''
+    // let supabase_anon_key = Deno.env.get('Z_SUPABASE_ANON_KEY') ?? ''
+    // const checkDeployed = Deno.env.get('DENO_DEPLOYMENT_ID') ?? ''
+    // if (checkDeployed.startsWith('tpqbderafyftvmrhrdht')) {
+    //   supabase_url = Deno.env.get('SUPABASE_URL') ?? supabase_url
+    //   supabase_anon_key = Deno.env.get('SUPABASE_ANON_KEY') ?? supabase_anon_key
+    // }
 
     const body = await req.json()
     const yt_url = body.yt_url as string
@@ -44,7 +44,7 @@ serve(async (req) => {
     const yt_id = yt_url.split('v=')[1]
 
     try {
-      const supabase = createClient(supabase_url, supabase_anon_key)
+      // const supabase = createClient(supabase_url, supabase_anon_key)
 
       const { data: captions_data, error: captions_error } = await supabase
         .from('captions')
