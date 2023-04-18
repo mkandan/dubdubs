@@ -19,23 +19,29 @@ def whisper_cap(request):
         api_key = request_json['api_key']
 
         # download audio from YT
-        yt = YouTube(yt_url)
-        yt_title = yt.title
-        yt_description = yt.description
-        yt_stream = yt.streams.filter(only_audio=True).first()
-        yt_stream.download(
-            output_path=path_to_tmp_folder)
-        file_path = path_to_tmp_folder+'/'+yt_stream.default_filename
+        try:
+            yt = YouTube(yt_url)
+            yt_title = yt.title
+            yt_description = yt.description
+            yt_stream = yt.streams.filter(only_audio=True).first()
+            yt_stream.download(output_path=path_to_tmp_folder)
+            file_path = os.path.join(
+                path_to_tmp_folder, yt_stream.default_filename)
 
-        # run audio through Whisper
-        # openai.api_key = api_key
-        # audio_file = open(file_path, 'rb')
-        # transcript = openai.Audio.transcribe("whisper-1", audio_file,)
+        except Exception as e:
+            # handle the exception here
+            print(f"Error while working with audio via pytub: {e}")
+            return {'error': 'Error while working with audio via pytub', 'message': e}, 500
 
-        # delete file from local storage
-        os.remove(file_path)
+    # run audio through Whisper
+    # openai.api_key = api_key
+    # audio_file = open(file_path, 'rb')
+    # transcript = openai.Audio.transcribe("whisper-1", audio_file,)
 
-        return {"message": "success", "response_time": (time.time()-start_time), "yt_url": yt_url, "desired_language": desired_language, yt_title: yt_title, "yt_description": yt_description, }
+    # delete file from local storage
+    os.remove(file_path)
+
+    return {"message": "success", "response_time": (time.time()-start_time), "yt_url": yt_url, "desired_language": desired_language, yt_title: yt_title, "yt_description": yt_description, }
 
     # handle missing parameters
     missing_params = []
