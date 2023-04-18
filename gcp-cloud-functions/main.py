@@ -4,6 +4,7 @@ import functions_framework
 from pytube import YouTube
 import openai
 from supabase import create_client, Client
+from convert_to_iso_639_1 import convert
 
 path_to_tmp_folder = 'tmp'  # local api on personal device
 
@@ -38,57 +39,69 @@ def whisper_cap(request):
             path_to_tmp_folder, yt_stream.default_filename)
 
         # run audio through Whisper -- $0.006 / minute (rounded to the nearest second)
-        # openai.api_key = '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'
-        # audio_file = open(file_path, 'rb')
-        # transcript = openai.Audio.transcribe(
-        #     "whisper-1", audio_file, response_format="verbose_json")
+        openai.api_key = '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'
+        try:
+            audio_file = open(file_path, 'rb')
+            transcript = openai.Audio.transcribe(
+                "whisper-1", audio_file, response_format="verbose_json")
+        except openai.error.AuthenticationError as error:
+            print("Authentication failed: {}".format(error))
+            return {"message": "error", "response_time": (time.time()-start_time), "error": "Incorrect API key provided. You can find your API key at https://platform.openai.com/account/api-keys"}
+        except openai.error.RateLimitError as error:
+            print(
+                "You exceeded your current quota, please check your plan and billing details: {}".format(error))
+            return {"message": "error", "response_time": (time.time()-start_time), "error": "You exceeded your current quota, please check your plan and billing details."}
 
-        # # clean up transcript. removed avg_logprob, compression_ratio, no_speech_prob, seek, temperature, tokens, and transient
-        # for segment in transcript['segments']:
-        #     for key in ['avg_logprob', 'compression_ratio', 'no_speech_prob', 'seek', 'temperature', 'tokens', 'transient']:
-        #         segment.pop(key, None)
+        # clean up transcript. removed avg_logprob, compression_ratio, no_speech_prob, seek, temperature, tokens, and transient
+        for segment in transcript['segments']:
+            for key in ['avg_logprob', 'compression_ratio', 'no_speech_prob', 'seek', 'temperature', 'tokens', 'transient']:
+                segment.pop(key, None)
         # if transcript['language'] is spelled out, convert to ISO 639-1 by checking if its longer than 2 characters
-        # if len(transcript['language']) > 2:
-        #     transcript['language'] =
+        if len(transcript['language']) > 2:
+            # make sure first letter of each word in lang is capitalized
+            capital_lang = transcript['language'].title()
+            transcript['language'] = convert("639-1", capital_lang)
 
         # if transcript is not empty, upload to supabase
-        # if transcript['text'] != '':
-        url: str = os.environ.get('SUPABASE_URL')
-        key: str = os.environ.get('SUPABASE_ANON_KEY')
-        supabase: Client = create_client(url, key)
+        if transcript['text'] != '':
+            url: str = os.environ.get('SUPABASE_URL')
+            key: str = os.environ.get('SUPABASE_ANON_KEY')
+            supabase: Client = create_client(url, key)
 
+        try:
+            supabase.table('captions').insert(
+                {'history': [{"event": "created_at", "timestamp": time.time()}],
+                 'language': transcript['language'],
+                 'timestamped_captions': transcript,
+                 'video_id': yt_id,
+                 },
+            ).execute()
+        except APIError as e:
+            return {"message": "error", "response_time": (time.time()-start_time), "error": e}
+
+        # # get queue data, mainly for history updates
         # try:
-        #     supabase.table('captions').insert(
-        #         {'history': [{"event": "created_at", "timestamp": time.time()}],
-        #          'language': transcript['language'],
-        #          'timestamped_captions': transcript,
-        #          'video_id': yt_id,
-        #          },
-        #     ).execute()
+        #     queue_data = supabase.table('queue').select(
+        #         '*').eq('id', queue_id).execute().data
         # except APIError as e:
         #     return {"message": "error", "response_time": (time.time()-start_time), "error": e}
 
-        try:
-            queue_data = supabase.table('queue').select(
-                '*').eq('id', queue_id).execute().data
-        except APIError as e:
-            return {"message": "error", "response_time": (time.time()-start_time), "error": e}
+        # updated_history = queue_data[0]['history']
+        # updated_history.append({"event": "captions_generated", "timestamp": time.strftime(
+        #     '%Y-%m-%dT%H:%M:%S.000Z', time.gmtime())})
 
-        updated_history = queue_data[0]['history']
-        updated_history.append({"event": "captions_generated", "timestamp": time.strftime(
-            '%Y-%m-%dT%H:%M:%S.000Z', time.gmtime())})
-
-        try:
-            supabase.table('queue').update(
-                {'status': 'complete', 'history': updated_history}
-            ).eq('id', queue_id).execute()
-        except APIError as e:
-            return {"message": "error", "response_time": (time.time()-start_time), "error": e}
+        # # update queue status and history
+        # try:
+        #     supabase.table('queue').update(
+        #         {'status': 'complete', 'history': updated_history}
+        #     ).eq('id', queue_id).execute()
+        # except APIError as e:
+        #     return {"message": "error", "response_time": (time.time()-start_time), "error": e}
 
         # delete file from local storage
         os.remove(file_path)
 
-        # return {"message": "success", "response_time": (time.time()-start_time), "yt_url": yt_url, "desired_language": desired_language, "queue_id": queue_id, "yt_title": yt_title, "yt_description": yt_description, "transcript": transcript}
+        return {"message": "success", "response_time": (time.time()-start_time), "yt_url": yt_url, "desired_language": desired_language, "queue_id": queue_id, "yt_title": yt_title, "yt_description": yt_description, "transcript": transcript}
 
     # handle missing parameters
     missing_params = []
