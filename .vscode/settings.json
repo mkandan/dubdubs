@@ -1,3 +1,4 @@
 {
-  "deno.enablePaths": ["/supabase"]
+  "deno.enablePaths": ["/supabase"],
+  "python.analysis.typeCheckingMode": "basic"
 }
