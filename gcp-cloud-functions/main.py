@@ -27,16 +27,13 @@ def whisper_cap(request):
             return {"message": "shorts are not supported", "response_time": (time.time()-start_time)}
 
         # download audio from YT
-        try:
-            yt = YouTube(yt_url)
-            yt_stream = yt.streams.filter(only_audio=True).first()
-            yt_stream.download(output_path=path_to_tmp_folder)
-            yt_title = yt.title
-            yt_description = yt.description
-            file_path = os.path.join(
-                path_to_tmp_folder, yt_stream.default_filename)
-
-        # return {"message": "success", "response_time": (time.time()-start_time), "yt_url": yt_url, "desired_language": desired_language, "api_key": api_key}
+        yt = YouTube(yt_url)
+        yt_stream = yt.streams.filter(only_audio=True).first()
+        yt_stream.download(output_path=path_to_tmp_folder)
+        yt_title = yt.title
+        yt_description = yt.description
+        file_path = os.path.join(
+            path_to_tmp_folder, yt_stream.default_filename)
 
         # run audio through Whisper -- $0.006 / minute (rounded to the nearest second)
         openai.api_key = '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'
