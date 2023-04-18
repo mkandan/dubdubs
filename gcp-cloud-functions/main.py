@@ -29,21 +29,14 @@ def whisper_cap(request):
         # download audio from YT
         try:
             yt = YouTube(yt_url)
-            yt_title = yt.title
-            yt_description = yt.description
             yt_stream = yt.streams.filter(only_audio=True).first()
             yt_stream.download(output_path=path_to_tmp_folder)
+            yt_title = yt.title
+            yt_description = yt.description
             file_path = os.path.join(
                 path_to_tmp_folder, yt_stream.default_filename)
 
-        except PytubeError as e:
-            error_message = str(e)  # convert PytubeError object to string
-            response = {
-                "status": "error",
-                "message": error_message,
-            }
-            # return error response with status code 500
-            return json.dumps(response), 500
+        # return {"message": "success", "response_time": (time.time()-start_time), "yt_url": yt_url, "desired_language": desired_language, "api_key": api_key}
 
         # run audio through Whisper -- $0.006 / minute (rounded to the nearest second)
         openai.api_key = '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'
