@@ -33,15 +33,15 @@ def whisper_cap(request):
             print(f"Error while working with audio via pytub: {e}")
             return {'error': 'Error while working with audio via pytub', 'message': e}, 500
 
-    # run audio through Whisper
-    # openai.api_key = api_key
-    # audio_file = open(file_path, 'rb')
-    # transcript = openai.Audio.transcribe("whisper-1", audio_file,)
+        # run audio through Whisper
+        # openai.api_key = api_key
+        # audio_file = open(file_path, 'rb')
+        # transcript = openai.Audio.transcribe("whisper-1", audio_file,)
 
-    # delete file from local storage
-    os.remove(file_path)
+        # delete file from local storage
+        os.remove(file_path)
 
-    return {"message": "success", "response_time": (time.time()-start_time), "yt_url": yt_url, "desired_language": desired_language, yt_title: yt_title, "yt_description": yt_description, }
+        return {"message": "success", "response_time": (time.time()-start_time), "yt_url": yt_url, "desired_language": desired_language, yt_title: yt_title, "yt_description": yt_description, }
 
     # handle missing parameters
     missing_params = []
