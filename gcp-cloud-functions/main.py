@@ -1,10 +1,11 @@
 import os
 import time
 import functions_framework
-from pytube import YouTube
+from yt_dlp import YoutubeDL
 import openai
 from supabase import create_client, Client
 from convert_to_iso_639_1 import convert
+from postgrest import APIError
 
 path_to_tmp_folder = 'tmp'  # local api on personal device
 
@@ -29,24 +30,18 @@ def whisper_cap(request):
             return {"message": "shorts are not supported", "response_time": (time.time()-start_time)}
 
         # download audio from YT
-        yt = YouTube(yt_url)
-        yt2 = YouTube(yt_url).streams.filter(
-            only_audio=True)
-        # yt_stream_default_filename = YouTube(yt_url).streams.filter(only_audio=True)[0].default_filename
-
-        # KeyError: 'streamingData'
-        # yt_stream_og = yt
-        # yt_stream = yt_stream_og
-        # yt_stream.download(output_path=path_to_tmp_folder)
-
-        yt_title = yt.title
-        yt_description = yt.description
         yt_id = yt_url.split('=')[1]
-        # file_path = os.path.join(
-        #     path_to_tmp_folder, yt_stream_default_filename)
-
-        # os.remove(file_path)
-        return {"message": "success", "response_time": (time.time()-start_time)}
+        URLS = [yt_url]
+        ydl_opts = {
+            'format': 'bestaudio/best',
+            'outtmpl': path_to_tmp_folder + '/%(id)s.%(ext)s',
+        }
+        with YoutubeDL(ydl_opts) as ydl:
+            info_dict = ydl.extract_info(URLS[0], download=False)
+            yt_title = info_dict.get('title', None)
+            yt_description = info_dict.get('description', None)
+            file_path = ydl.prepare_filename(info_dict)
+            ydl.download(URLS)
 
         # run audio through Whisper -- $0.006 / minute (rounded to the nearest second)
         openai.api_key = api_key
@@ -82,19 +77,19 @@ def whisper_cap(request):
                 supabase.table('captions').insert(
                     {'history': [{"event": "created_at", "timestamp": time.time()}],
                      'language': transcript['language'],
-                     'timestamped_captions': transcript,
+                     'timestamped_captions': transcript['segments'],
                      'video_id': yt_id,
                      },
                 ).execute()
             except APIError as e:
-                return {"message": "error", "response_time": (time.time()-start_time), "error": e}
+                return {"message": "error while writing captions to DB", "response_time": (time.time()-start_time), "error": e}
 
             # get queue data, mainly for history updates
             try:
                 queue_data = supabase.table('queue').select(
                     '*').eq('id', queue_id).execute().data
             except APIError as e:
-                return {"message": "error", "response_time": (time.time()-start_time), "error": e}
+                return {"message": "error while fetching queue data from DB", "response_time": (time.time()-start_time), "error": e}
 
             # update queue history and status
             updated_history = queue_data[0]['history']
@@ -105,7 +100,7 @@ def whisper_cap(request):
                     {'status': 'complete', 'history': updated_history}
                 ).eq('id', queue_id).execute()
             except APIError as e:
-                return {"message": "error", "response_time": (time.time()-start_time), "error": e}
+                return {"message": "error while writing updated queue to DB", "response_time": (time.time()-start_time), "error": e}
 
             # delete file from local storage
             os.remove(file_path)
