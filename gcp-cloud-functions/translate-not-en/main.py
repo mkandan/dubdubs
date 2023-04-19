@@ -57,10 +57,12 @@ def main(request):
                 "whisper-1", audio_file, response_format="verbose_json")
         except openai.error.AuthenticationError as error:
             print("Authentication failed: {}".format(error))
+            os.remove(file_path)
             return {"message": "error", "response_time": (time.time()-start_time), "error": "Incorrect API key provided. You can find your API key at https://platform.openai.com/account/api-keys"}
         except openai.error.RateLimitError as error:
             print(
                 "You exceeded your current quota, please check your plan and billing details: {}".format(error))
+            os.remove(file_path)
             return {"message": "error", "response_time": (time.time()-start_time), "error": "You exceeded your current quota, please check your plan and billing details."}
 
         # clean up transcript. removed avg_logprob, compression_ratio, no_speech_prob, seek, temperature, tokens, and transient
@@ -79,107 +81,112 @@ def main(request):
         #     response = f.read()
         # transcript = json.loads(response)['transcript']
 
-        whole_text: str = transcript['text']
         translator = deepl.Translator(os.environ.get('DEEPL_AUTH_KEY'))
         deepl_usage = str(translator.get_usage()).split(': ')[
             1].split(' of ')
-        before_deepl_usage = deepl_usage[0]
-        deepl_usage_limit = deepl_usage[1]
+        before_deepl_usage = int(deepl_usage[0])
+        deepl_usage_limit = int(deepl_usage[1])
+
+        all_segment_text_ordered = []
+        for segment in transcript['segments']:
+            text = segment['text']
+            # remove leading or trailing whitespace
+            if text[0] == ' ':
+                text = text[1:]
+            if text[-1] == ' ':
+                text = text[:-1]
+            all_segment_text_ordered.append(text)
 
         try:
             deepl_result = translator.translate_text(
-                whole_text, source_lang=transcript['language'], target_lang=desired_language.upper())
+                all_segment_text_ordered, source_lang=transcript['language'], target_lang=desired_language.upper())
         except deepl.QuotaExceededException as e:
+            os.remove(file_path)
             return {"message": "error", "response_time": (time.time()-start_time), "error": e.args[0]}
         except deepl.exceptions.DeepLException as e:
             if (e.should_retry):
+                os.remove(file_path)
                 return {"message": "retry", "response_time": (time.time()-start_time), "error": e.args[0]}
             else:
+                os.remove(file_path)
                 return {"message": "error", "response_time": (time.time()-start_time), "error": e.args[0]}
 
-        deepl_result_dict = {
-            'text': deepl_result.text,
-            'detected_source_lang': deepl_result.detected_source_lang
-        }
-        deepl_result_json = json.loads(json.dumps(deepl_result_dict))
-        after_deepl_usage = int(before_deepl_usage)+len(whole_text)
-
-        # update transcript with translated text from DeepL
-        transcript['text'] = deepl_result_json['text']
+        # replace original transcript text with translated text
+        combined_text = ''
+        for i in range(len(deepl_result)):
+            transcript['segments'][i]['text'] = deepl_result[i].text
+            # dont add an extra space at the end
+            if i == len(deepl_result)-1:
+                combined_text += deepl_result[i].text
+            else:
+                combined_text += deepl_result[i].text + ' '
+        transcript['text'] = combined_text
+        transcript['original_language'] = transcript['language']
         transcript['language'] = desired_language
-        transcript['original_language'] = deepl_result_json['detected_source_lang'].lower()
-        re_segment_as_sentence = re.split(
-            r'[.!?]\s', deepl_result_json['text'])
-        # collate segments (sentences) between original and translated text
-        for i, segment in enumerate(transcript['segments']):
-            # if i < len(re_segment_as_sentence):
-            #     segment['text'] = re_segment_as_sentence[i] + \
-            #         re.search(r'[.?!]', segment['text']).group(0)
-            if i < len(re_segment_as_sentence):
-                new_text = re_segment_as_sentence[i]
-                match = re.search(r'[.?!]', segment['text'])
-                if match:
-                    new_text += match.group(0)
-                segment['text'] = new_text
+        after_deepl_usage = int(before_deepl_usage)+len(combined_text)
 
-        return {"message": "success", "response_time": (time.time()-start_time), 'transcript': transcript, "before_deepl_usage": before_deepl_usage, "after_deepl_usage": after_deepl_usage, "deepl_usage_limit": deepl_usage_limit}
+        # return {'transcript': transcript}
 
-    #     # if transcript is not empty, upload to supabase
-    #     if transcript['text'] != '':
-    #         url: str = os.environ.get('SUPABASE_URL')
-    #         key: str = os.environ.get('SUPABASE_ANON_KEY')
-    #         supabase: Client = create_client(url, key)
+        # if transcript is not empty, upload to supabase
+        if transcript['text'] != '':
+            url: str = os.environ.get('SUPABASE_URL')
+            key: str = os.environ.get('SUPABASE_ANON_KEY')
+            supabase: Client = create_client(url, key)
 
-    #         try:
-    #             supabase.table('captions').insert(
-    #                 {'history': [{"event": "created_at", "timestamp": time.time()}],
-    #                  'language': transcript['language'],
-    #                  'timestamped_captions': transcript['segments'],
-    #                  'video_id': yt_id,
-    #                  },
-    #             ).execute()
-    #         except APIError as e:
-    #             return {"message": "error while writing captions to DB", "response_time": (time.time()-start_time), "error": e}
+            try:
+                supabase.table('captions').insert(
+                    {'history': [{"event": "created_at", "timestamp": time.time()}],
+                     'language': transcript['language'],
+                     'timestamped_captions': [json.loads(json.dumps(transcript))],
+                     'video_id': yt_id,
+                     },
+                ).execute()
+            except APIError as e:
+                os.remove(file_path)
+                return {"message": "error while writing captions to DB", "response_time": (time.time()-start_time), "error": e.json()}
 
-    #         # get queue data, mainly for history updates
-    #         try:
-    #             queue_data = supabase.table('queue').select(
-    #                 '*').eq('id', queue_id).execute().data
-    #         except APIError as e:
-    #             return {"message": "error while fetching queue data from DB", "response_time": (time.time()-start_time), "error": e}
+            # get queue data, mainly for history updates
+            try:
+                queue_data = supabase.table('queue').select(
+                    '*').eq('id', queue_id).execute().data
+            except APIError as e:
+                os.remove(file_path)
+                return {"message": "error while fetching queue data from DB", "response_time": (time.time()-start_time), "error": e.json()}
 
-    #         # update queue history and status
-    #         updated_history = queue_data[0]['history']
-    #         updated_history.append({"event": "captions_generated", "timestamp": time.strftime(
-    #             '%Y-%m-%dT%H:%M:%S.000Z', time.gmtime())})
-    #         try:
-    #             supabase.table('queue').update(
-    #                 {'status': 'complete', 'history': updated_history}
-    #             ).eq('id', queue_id).execute()
-    #         except APIError as e:
-    #             return {"message": "error while writing updated queue to DB", "response_time": (time.time()-start_time), "error": e}
+            # update queue history and status
+            updated_history = queue_data[0]['history']
+            updated_history.append({"event": "captions_generated", "timestamp": time.strftime(
+                '%Y-%m-%dT%H:%M:%S.000Z', time.gmtime())})
+            try:
+                supabase.table('queue').update(
+                    {'status': 'complete', 'history': updated_history}
+                ).eq('id', queue_id).execute()
+            except APIError as e:
+                os.remove(file_path)
+                return {"message": "error while writing updated queue to DB", "response_time": (time.time()-start_time), "error": e.json()}
 
-    #         # delete file from local storage
-    #         os.remove(file_path)
+            # delete file from local storage
+            os.remove(file_path)
 
-    #         return {"message": "success", "response_time": (time.time()-start_time), "yt_url": yt_url, "desired_language": desired_language, "queue_id": queue_id, "yt_title": yt_title, "yt_description": yt_description, "transcript": transcript}
+            return {"message": "success", "response_time": (time.time()-start_time), "yt_url": yt_url, "desired_language": desired_language, "queue_id": queue_id, "yt_title": yt_title, "yt_description": yt_description, "transcript": transcript, "before_deepl_usage": before_deepl_usage, "after_deepl_usage": after_deepl_usage, "deepl_usage_limit": deepl_usage_limit}
 
-    #     else:
-    #         return {"message": "error", "response_time": (time.time()-start_time), "error": "transcript was empty"}
+        else:
+            os.remove(file_path)
+            return {"message": "error", "response_time": (time.time()-start_time), "error": "transcript was empty"}
 
-    # # handle missing parameters
-    # missing_params = []
-    # required_params = ['yt_url', 'desired_language', 'api_key', 'queue_id']
-    # if request_json:
-    #     for param in required_params:
-    #         if param not in request_json:
-    #             missing_params.append(param)
-    #     if missing_params:
-    #         return {"message": "missing parameter", "required": missing_params, "response_time": (time.time()-start_time)}
-    #     # if all required parameters are present, but empty
-    #     else:
-    #         return {"message": "missing parameter", "required": required_params, "response_time": (time.time()-start_time)}
+    # handle missing parameters
+    missing_params = []
+    required_params = ['yt_url', 'desired_language', 'api_key', 'queue_id']
+    if request_json:
+        for param in required_params:
+            if param not in request_json:
+                missing_params.append(param)
+        if missing_params:
+            return {"message": "missing parameter", "required": missing_params, "response_time": (time.time()-start_time)}
+        # if all required parameters are present, but empty
+        else:
+            return {"message": "missing parameter", "required": required_params, "response_time": (time.time()-start_time)}
 
-    # # handle empty request
-    # else:
-    #     return {"message": "missing parameter", "required": ['yt_url', 'desired_language', 'api_key', 'queue_id'], "response_time": (time.time()-start_time)}
+    # handle empty request
+    else:
+        return {"message": "missing parameter", "required": ['yt_url', 'desired_language', 'api_key', 'queue_id'], "response_time": (time.time()-start_time)}
