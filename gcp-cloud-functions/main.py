@@ -30,16 +30,26 @@ def whisper_cap(request):
 
         # download audio from YT
         yt = YouTube(yt_url)
-        yt_stream = yt.streams.filter(only_audio=True).first()
-        yt_stream.download(output_path=path_to_tmp_folder)
+        yt2 = YouTube(yt_url).streams.filter(
+            only_audio=True)
+        # yt_stream_default_filename = YouTube(yt_url).streams.filter(only_audio=True)[0].default_filename
+
+        # KeyError: 'streamingData'
+        # yt_stream_og = yt
+        # yt_stream = yt_stream_og
+        # yt_stream.download(output_path=path_to_tmp_folder)
+
         yt_title = yt.title
         yt_description = yt.description
         yt_id = yt_url.split('=')[1]
-        file_path = os.path.join(
-            path_to_tmp_folder, yt_stream.default_filename)
+        # file_path = os.path.join(
+        #     path_to_tmp_folder, yt_stream_default_filename)
+
+        # os.remove(file_path)
+        return {"message": "success", "response_time": (time.time()-start_time)}
 
         # run audio through Whisper -- $0.006 / minute (rounded to the nearest second)
-        openai.api_key = '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'
+        openai.api_key = api_key
         try:
             audio_file = open(file_path, 'rb')
             transcript = openai.Audio.transcribe(
@@ -68,40 +78,39 @@ def whisper_cap(request):
             key: str = os.environ.get('SUPABASE_ANON_KEY')
             supabase: Client = create_client(url, key)
 
-        try:
-            supabase.table('captions').insert(
-                {'history': [{"event": "created_at", "timestamp": time.time()}],
-                 'language': transcript['language'],
-                 'timestamped_captions': transcript,
-                 'video_id': yt_id,
-                 },
-            ).execute()
-        except APIError as e:
-            return {"message": "error", "response_time": (time.time()-start_time), "error": e}
+            try:
+                supabase.table('captions').insert(
+                    {'history': [{"event": "created_at", "timestamp": time.time()}],
+                     'language': transcript['language'],
+                     'timestamped_captions': transcript,
+                     'video_id': yt_id,
+                     },
+                ).execute()
+            except APIError as e:
+                return {"message": "error", "response_time": (time.time()-start_time), "error": e}
 
-        # # get queue data, mainly for history updates
-        # try:
-        #     queue_data = supabase.table('queue').select(
-        #         '*').eq('id', queue_id).execute().data
-        # except APIError as e:
-        #     return {"message": "error", "response_time": (time.time()-start_time), "error": e}
+            # get queue data, mainly for history updates
+            try:
+                queue_data = supabase.table('queue').select(
+                    '*').eq('id', queue_id).execute().data
+            except APIError as e:
+                return {"message": "error", "response_time": (time.time()-start_time), "error": e}
 
-        # updated_history = queue_data[0]['history']
-        # updated_history.append({"event": "captions_generated", "timestamp": time.strftime(
-        #     '%Y-%m-%dT%H:%M:%S.000Z', time.gmtime())})
+            # update queue history and status
+            updated_history = queue_data[0]['history']
+            updated_history.append({"event": "captions_generated", "timestamp": time.strftime(
+                '%Y-%m-%dT%H:%M:%S.000Z', time.gmtime())})
+            try:
+                supabase.table('queue').update(
+                    {'status': 'complete', 'history': updated_history}
+                ).eq('id', queue_id).execute()
+            except APIError as e:
+                return {"message": "error", "response_time": (time.time()-start_time), "error": e}
 
-        # # update queue status and history
-        # try:
-        #     supabase.table('queue').update(
-        #         {'status': 'complete', 'history': updated_history}
-        #     ).eq('id', queue_id).execute()
-        # except APIError as e:
-        #     return {"message": "error", "response_time": (time.time()-start_time), "error": e}
+            # delete file from local storage
+            os.remove(file_path)
 
-        # delete file from local storage
-        os.remove(file_path)
-
-        return {"message": "success", "response_time": (time.time()-start_time), "yt_url": yt_url, "desired_language": desired_language, "queue_id": queue_id, "yt_title": yt_title, "yt_description": yt_description, "transcript": transcript}
+            return {"message": "success", "response_time": (time.time()-start_time), "yt_url": yt_url, "desired_language": desired_language, "queue_id": queue_id, "yt_title": yt_title, "yt_description": yt_description, "transcript": transcript}
 
     # handle missing parameters
     missing_params = []
