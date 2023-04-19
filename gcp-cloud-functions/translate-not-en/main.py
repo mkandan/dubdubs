@@ -8,6 +8,7 @@ from supabase import create_client, Client
 from convert_to_iso_639_1 import convert
 from postgrest import APIError
 import deepl
+import re
 
 path_to_tmp_folder = 'tmp'  # local api on personal device
 
@@ -70,9 +71,9 @@ def main(request):
         # read test.json file
         with open('test-shorter.json', 'r') as f:
             response = f.read()
-        response = json.loads(response)
+        transcript = json.loads(response)['transcript']
 
-        whole_transcript: str = response['transcript']['text']
+        whole_text: str = transcript['text']
         translator = deepl.Translator(os.environ.get('DEEPL_AUTH_KEY'))
         deepl_usage = str(translator.get_usage()).split(': ')[
             1].split(' of ')
@@ -81,15 +82,27 @@ def main(request):
 
         try:
             deepl_result = translator.translate_text(
-                whole_transcript, source_lang=response['transcript']['language'], target_lang=desired_language.upper())
+                whole_text, source_lang=transcript['language'], target_lang=desired_language.upper())
             deepl_result_dict = {
                 'text': deepl_result.text,
                 'detected_source_lang': deepl_result.detected_source_lang
             }
             deepl_result_json = json.loads(json.dumps(deepl_result_dict))
-            after_deepl_usage = int(before_deepl_usage)+len(whole_transcript)
+            after_deepl_usage = int(before_deepl_usage)+len(whole_text)
 
-            return {"message": "success", "response_time": (time.time()-start_time), "whole_transcript": whole_transcript, "deepl_result": deepl_result_json, "before_deepl_usage": before_deepl_usage, "after_deepl_usage": after_deepl_usage, "deepl_usage_limit": deepl_usage_limit}
+            # update transcript with translated text from DeepL
+            transcript['text'] = deepl_result_json['text']
+            transcript['language'] = desired_language
+            transcript['original_language'] = deepl_result_json['detected_source_lang'].lower()
+            re_segment_as_sentence = re.split(
+                r'[.!?]\s', deepl_result_json['text'])
+            # collate segments (sentences) between original and translated text
+            for i, segment in enumerate(transcript['segments']):
+                if i < len(re_segment_as_sentence):
+                    segment['text'] = re_segment_as_sentence[i] + \
+                        re.search(r'[.?!]', segment['text']).group(0)
+
+            return {"message": "success", "response_time": (time.time()-start_time), 'transcript': transcript, "before_deepl_usage": before_deepl_usage, "after_deepl_usage": after_deepl_usage, "deepl_usage_limit": deepl_usage_limit}
 
         except deepl.QuotaExceededException as e:
             return {"message": "error", "response_time": (time.time()-start_time), "error": e.args[0]}
