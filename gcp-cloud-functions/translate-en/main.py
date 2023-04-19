@@ -11,7 +11,7 @@ path_to_tmp_folder = 'tmp'  # local api on personal device
 
 
 @functions_framework.http
-def whisper_cap(request):
+def main(request):
     start_time = time.time()
     # get youtube url and desired_language from request
     request_json = request.get_json()
@@ -47,8 +47,11 @@ def whisper_cap(request):
         openai.api_key = api_key
         try:
             audio_file = open(file_path, 'rb')
-            transcript = openai.Audio.transcribe(
-                "whisper-1", audio_file, response_format="verbose_json")
+            if desired_language == 'en':
+                transcript = openai.Audio.translate(
+                    "whisper-1", audio_file, response_format="verbose_json")
+            else:
+                return {"message": "error", "response_time": (time.time()-start_time), "error": "this endpoint is only for english result operations."}
         except openai.error.AuthenticationError as error:
             print("Authentication failed: {}".format(error))
             return {"message": "error", "response_time": (time.time()-start_time), "error": "Incorrect API key provided. You can find your API key at https://platform.openai.com/account/api-keys"}
@@ -106,6 +109,9 @@ def whisper_cap(request):
             os.remove(file_path)
 
             return {"message": "success", "response_time": (time.time()-start_time), "yt_url": yt_url, "desired_language": desired_language, "queue_id": queue_id, "yt_title": yt_title, "yt_description": yt_description, "transcript": transcript}
+
+        else:
+            return {"message": "error", "response_time": (time.time()-start_time), "error": "transcript was empty"}
 
     # handle missing parameters
     missing_params = []
