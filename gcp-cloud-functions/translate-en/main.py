@@ -13,10 +13,10 @@ path_to_tmp_folder = 'tmp'  # local api on personal device
 @functions_framework.http
 def main(request):
     start_time = time.time()
-    # get youtube url and desired_language from request
     request_json = request.get_json()
 
     if request_json and 'yt_url' in request_json and 'desired_language' in request_json and 'api_key' in request_json and 'queue_id' in request_json:
+        # destructure request
         yt_url = request_json['yt_url']
         desired_language = request_json['desired_language']
         api_key = request_json['api_key']

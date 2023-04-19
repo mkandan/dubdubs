@@ -1,0 +1,5 @@
+functions-framework==3.*
+yt_dlp==2023.3.4
+openai==0.27.4
+supabase==1.0.3
+deepl==1.14.0
