@@ -2,5 +2,7 @@
   "typescript.tsdk": "node_modules/.pnpm/typescript@5.0.4/node_modules/typescript/lib",
   "typescript.enablePromptUseWorkspaceTsdk": true,
   "deno.enablePaths": ["/supabase"],
-  "python.analysis.typeCheckingMode": "off"
+  "python.analysis.typeCheckingMode": "off",
+  "deno.enable": true,
+  "deno.unstable": true
 }
