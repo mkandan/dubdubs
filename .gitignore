@@ -3,3 +3,4 @@ gcp-cloud-functions/tmp/*.*
 **/**/.env
 gcp-cloud-functions/translate-not-en/test-shorter.json
 gcp-cloud-functions/translate-not-en/test.json
+gcp-cloud-functions/translate-not-en/tmp

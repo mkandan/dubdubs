@@ -22,6 +22,9 @@ def main(request):
         api_key = request_json['api_key']
         queue_id = request_json['queue_id']
 
+        if desired_language != 'en':
+            return {"message": "error", "response_time": (time.time()-start_time), "error": "this endpoint is only for english result operations."}
+
         # remove any playlist/mix (non single video) parameters from url
         if '&' in yt_url:
             yt_url = yt_url.split('&')[0]
@@ -47,11 +50,9 @@ def main(request):
         openai.api_key = api_key
         try:
             audio_file = open(file_path, 'rb')
-            if desired_language == 'en':
-                transcript = openai.Audio.translate(
-                    "whisper-1", audio_file, response_format="verbose_json")
-            else:
-                return {"message": "error", "response_time": (time.time()-start_time), "error": "this endpoint is only for english result operations."}
+            transcript = openai.Audio.translate(
+                "whisper-1", audio_file, response_format="verbose_json")
+
         except openai.error.AuthenticationError as error:
             print("Authentication failed: {}".format(error))
             return {"message": "error", "response_time": (time.time()-start_time), "error": "Incorrect API key provided. You can find your API key at https://platform.openai.com/account/api-keys"}

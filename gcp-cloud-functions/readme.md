@@ -31,4 +31,5 @@
 ### test links
 
 https://www.youtube.com/watch?v=qCsS-6W4rOA
-https://www.youtube.com/watch?v=hBgEx4m-ejo
+https://www.youtube.com/watch?v=hBgEx4m-ejo (1ish min)
+https://www.youtube.com/watch?v=xBz8cYO3UjE (1min)
