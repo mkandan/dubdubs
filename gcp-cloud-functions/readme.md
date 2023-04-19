@@ -1,16 +1,18 @@
 ### local
 
-1. serve GCP CF locally `functions-framework --target whisper_cap --debug` via CLI
+1. install requirements `pip install -r requirements.txt` (preferably in a virtualenv like .venv)
 
-2. send request via curl (but i prefer [hopscotch](https://hoppscotch.io/))
+2. serve GCP CF locally `functions-framework --target whisper_cap --debug`
 
-`curl http://127.0.0.1:8080`
+3. send request via curl (but i prefer [hopscotch](https://hoppscotch.io/))
+
+`curl http://127.0.0.1:8080` for a basic test
 
 `curl --request POST \
   --url http://localhost:8080/ \
   --header 'content-type: application/json' \
   --data '{
-  "yt_url": "https://www.youtube.com/watch?v=qCsS-6W4rOA",
+  "yt_url": "https://www.youtube.com/watch?v=xBz8cYO3UjE",
   "desired_language": "asdf",
   "api_key": "my_fake_api_key",
   "queue_id":39
@@ -18,11 +20,14 @@
 
 ### deployed CF
 
-`curl -m 70 -X POST https://youcap-whisper-ttgy4skmjq-wl.a.run.app \
+if translating to english, curl to https://translate-en-ttgy4skmjq-wl.a.run.app
+if translating to not-english, curl to https://translate-not-en-ttgy4skmjq-wl.a.run.app
+
+`curl -m 70 -X POST [see above] \
 -H "Authorization: bearer $(gcloud auth print-identity-token)" \
 -H "Content-Type: application/json" \
 --data '{
-  "yt_url": "https://www.youtube.com/watch?v=qCsS-6W4rOA",
+  "yt_url": "https://www.youtube.com/watch?v=xBz8cYO3UjE",
   "desired_language": "asdf",
   "api_key": "my_fake_api_key",
   "queue_id":39
