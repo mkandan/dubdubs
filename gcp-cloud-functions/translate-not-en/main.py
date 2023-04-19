@@ -8,7 +8,6 @@ from supabase import create_client, Client
 from convert_to_iso_639_1 import convert
 from postgrest import APIError
 import deepl
-import re
 
 path_to_tmp_folder = 'tmp'  # local api on personal device
 

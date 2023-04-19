@@ -1,5 +1,6 @@
 import os
 import time
+import json
 import functions_framework
 from yt_dlp import YoutubeDL
 import openai
@@ -52,19 +53,21 @@ def main(request):
             audio_file = open(file_path, 'rb')
             transcript = openai.Audio.translate(
                 "whisper-1", audio_file, response_format="verbose_json")
-
         except openai.error.AuthenticationError as error:
             print("Authentication failed: {}".format(error))
+            os.remove(file_path)
             return {"message": "error", "response_time": (time.time()-start_time), "error": "Incorrect API key provided. You can find your API key at https://platform.openai.com/account/api-keys"}
         except openai.error.RateLimitError as error:
             print(
                 "You exceeded your current quota, please check your plan and billing details: {}".format(error))
+            os.remove(file_path)
             return {"message": "error", "response_time": (time.time()-start_time), "error": "You exceeded your current quota, please check your plan and billing details."}
 
         # clean up transcript. removed avg_logprob, compression_ratio, no_speech_prob, seek, temperature, tokens, and transient
         for segment in transcript['segments']:
             for key in ['avg_logprob', 'compression_ratio', 'no_speech_prob', 'seek', 'temperature', 'tokens', 'transient']:
                 segment.pop(key, None)
+
         # if transcript['language'] is spelled out, convert to ISO 639-1 by checking if its longer than 2 characters
         if len(transcript['language']) > 2:
             # make sure first letter of each word in lang is capitalized
@@ -81,19 +84,21 @@ def main(request):
                 supabase.table('captions').insert(
                     {'history': [{"event": "created_at", "timestamp": time.time()}],
                      'language': transcript['language'],
-                     'timestamped_captions': transcript['segments'],
+                     'timestamped_captions': [json.loads(json.dumps(transcript))],
                      'video_id': yt_id,
                      },
                 ).execute()
             except APIError as e:
-                return {"message": "error while writing captions to DB", "response_time": (time.time()-start_time), "error": e}
+                os.remove(file_path)
+                return {"message": "error while writing captions to DB", "response_time": (time.time()-start_time), "error": e.json()}
 
             # get queue data, mainly for history updates
             try:
                 queue_data = supabase.table('queue').select(
                     '*').eq('id', queue_id).execute().data
             except APIError as e:
-                return {"message": "error while fetching queue data from DB", "response_time": (time.time()-start_time), "error": e}
+                os.remove(file_path)
+                return {"message": "error while fetching queue data from DB", "response_time": (time.time()-start_time), "error": e.json()}
 
             # update queue history and status
             updated_history = queue_data[0]['history']
@@ -104,7 +109,8 @@ def main(request):
                     {'status': 'complete', 'history': updated_history}
                 ).eq('id', queue_id).execute()
             except APIError as e:
-                return {"message": "error while writing updated queue to DB", "response_time": (time.time()-start_time), "error": e}
+                os.remove(file_path)
+                return {"message": "error while writing updated queue to DB", "response_time": (time.time()-start_time), "error": e.json()}
 
             # delete file from local storage
             os.remove(file_path)
@@ -112,6 +118,7 @@ def main(request):
             return {"message": "success", "response_time": (time.time()-start_time), "yt_url": yt_url, "desired_language": desired_language, "queue_id": queue_id, "yt_title": yt_title, "yt_description": yt_description, "transcript": transcript}
 
         else:
+            os.remove(file_path)
             return {"message": "error", "response_time": (time.time()-start_time), "error": "transcript was empty"}
 
     # handle missing parameters
