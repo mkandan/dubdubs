@@ -55,7 +55,7 @@ serve(async req => {
       }
 
       if (desired_language == 'en') {
-        fetch(Deno.env.get('GOOGLE_CLOUD_FUNCTION_TRANSLATE-EN_URL'), {
+        fetch(Deno.env.get('GOOGLE_CLOUD_FUNCTION_TRANSLATE_EN_URL'), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -75,7 +75,7 @@ serve(async req => {
           },
         )
       } else if (desired_language != 'en') {
-        fetch(Deno.env.get('GOOGLE_CLOUD_FUNCTION_TRANSLATE-NOT-EN_URL'), {
+        fetch(Deno.env.get('GOOGLE_CLOUD_FUNCTION_TRANSLATE_NOT_EN_URL'), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
