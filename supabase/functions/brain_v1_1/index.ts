@@ -6,11 +6,7 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { supabase } from './_shared/supabaseClient.ts'
 import { corsHeaders } from './_shared/cors.ts'
 
-console.log('Hello from Functions!')
-
 serve(async req => {
-  console.log(req.method)
-
   if (req.method === 'POST') {
     const body = await req.json()
     const yt_url = body.yt_url as string
