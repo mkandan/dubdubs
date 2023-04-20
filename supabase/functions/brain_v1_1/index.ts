@@ -64,7 +64,7 @@ serve(async req => {
         })
         return new Response(
           JSON.stringify({
-            message: 'method not allowed',
+            message: 'sent',
           }),
           {
             headers: {
@@ -84,7 +84,7 @@ serve(async req => {
         })
         return new Response(
           JSON.stringify({
-            message: 'method not allowed',
+            message: 'sent',
           }),
           {
             headers: {
@@ -96,36 +96,17 @@ serve(async req => {
         )
       }
     }
-  } else if (req.method !== 'POST') {
-    return new Response(
-      JSON.stringify({
-        message: 'method not allowed',
-      }),
-      {
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json',
-        },
-        status: 405,
-      },
-    )
   }
   return new Response(
     JSON.stringify({
-      message: 'sent',
+      message: 'method not allowed',
     }),
     {
       headers: {
         ...corsHeaders,
         'Content-Type': 'application/json',
       },
-      status: 200,
+      status: 405,
     },
   )
 })
-
-// To invoke:
-// curl -i --location --request POST 'http://localhost:54321/functions/v1/' \
-//   --header 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0' \
-//   --header 'Content-Type: application/json' \
-//   --data '{"name":"Functions"}'
