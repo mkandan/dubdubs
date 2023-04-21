@@ -14,24 +14,23 @@ serve(async req => {
     const api_key = body.api_key as string
     const yt_id = yt_url.split('v=')[1]
 
-    // make queue
-    const { data: queue_data, error: queue_error } = await supabase
-      .from('queue')
+    // on FE: realtime checking for updates for captions with status 'complete'. but if status is 'requested' show a loading symbol. should NOT fire edge function as it's already been requested.
+    // insert captions with status to request
+    const { data: captions_request_data, error: captions_request_error } = await supabase
+      .from('captions')
       .insert({
-        history: [{ event: 'created_at', timestamp: new Date().toISOString() }],
+        history: [{ event: 'requested_at', timestamp: new Date().toISOString() }],
+        language: desired_language,
         video_id: yt_id,
-        job_details: {
-          type: 'get_captions',
-          desired_language: desired_language,
-        },
+        status: 'requested'
       })
       .select('*')
 
-    if (queue_error) {
+    if (captions_request_error) {
       return new Response(
         JSON.stringify({
-          message: 'queue_error',
-          error: queue_error.message,
+          message: 'captions_request_error',
+          error: captions_request_error.message,
         }),
         {
           headers: {
@@ -47,7 +46,7 @@ serve(async req => {
         yt_url,
         desired_language,
         api_key,
-        queue_id: queue_data[0].id,
+        captions_id: captions_request_data[0].id,
       }
 
       if (desired_language == 'en') {
