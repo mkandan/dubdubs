@@ -17,12 +17,12 @@ def main(request):
     start_time = time.time()
     request_json = request.get_json()
 
-    if request_json and 'yt_url' in request_json and 'desired_language' in request_json and 'api_key' in request_json and 'queue_id' in request_json:
+    if request_json and 'yt_url' in request_json and 'desired_language' in request_json and 'api_key' in request_json and 'captions_id' in request_json:
         # destructure request
         yt_url = request_json['yt_url']
         desired_language = request_json['desired_language']
         api_key = request_json['api_key']
-        queue_id = request_json['queue_id']
+        captions_id = request_json['captions_id']
 
         if desired_language == 'en':
             return {"message": "error", "response_time": (time.time()-start_time), "error": "this endpoint is only for non-english result operations."}
@@ -138,36 +138,17 @@ def main(request):
                      'language': transcript['language'],
                      'timestamped_captions': [json.loads(json.dumps(transcript))],
                      'video_id': yt_id,
+                     'status': 'complete'
                      },
-                ).execute()
+                ).eq('id', captions_id).execute()
             except APIError as e:
                 os.remove(file_path)
                 return {"message": "error while writing captions to DB", "response_time": (time.time()-start_time), "error": e.json()}
 
-            # get queue data, mainly for history updates
-            try:
-                queue_data = supabase.table('queue').select(
-                    '*').eq('id', queue_id).execute().data
-            except APIError as e:
-                os.remove(file_path)
-                return {"message": "error while fetching queue data from DB", "response_time": (time.time()-start_time), "error": e.json()}
-
-            # update queue history and status
-            updated_history = queue_data[0]['history']
-            updated_history.append({"event": "captions_generated", "timestamp": time.strftime(
-                '%Y-%m-%dT%H:%M:%S.000Z', time.gmtime())})
-            try:
-                supabase.table('queue').update(
-                    {'status': 'complete', 'history': updated_history}
-                ).eq('id', queue_id).execute()
-            except APIError as e:
-                os.remove(file_path)
-                return {"message": "error while writing updated queue to DB", "response_time": (time.time()-start_time), "error": e.json()}
-
             # delete file from local storage
             os.remove(file_path)
 
-            return {"message": "success", "response_time": (time.time()-start_time), "yt_url": yt_url, "desired_language": desired_language, "queue_id": queue_id, "yt_title": yt_title, "yt_description": yt_description, "transcript": transcript, "before_deepl_usage": before_deepl_usage, "after_deepl_usage": after_deepl_usage, "deepl_usage_limit": deepl_usage_limit}
+            return {"message": "success", "response_time": (time.time()-start_time), "yt_url": yt_url, "desired_language": desired_language, "captions_id": captions_id, "yt_title": yt_title, "yt_description": yt_description, "transcript": transcript, "before_deepl_usage": before_deepl_usage, "after_deepl_usage": after_deepl_usage, "deepl_usage_limit": deepl_usage_limit}
 
         else:
             os.remove(file_path)
@@ -175,7 +156,7 @@ def main(request):
 
     # handle missing parameters
     missing_params = []
-    required_params = ['yt_url', 'desired_language', 'api_key', 'queue_id']
+    required_params = ['yt_url', 'desired_language', 'api_key', 'captions_id']
     if request_json:
         for param in required_params:
             if param not in request_json:
@@ -188,4 +169,4 @@ def main(request):
 
     # handle empty request
     else:
-        return {"message": "missing parameter", "required": ['yt_url', 'desired_language', 'api_key', 'queue_id'], "response_time": (time.time()-start_time)}
+        return {"message": "missing parameter", "required": ['yt_url', 'desired_language', 'api_key', 'captions_id'], "response_time": (time.time()-start_time)}
