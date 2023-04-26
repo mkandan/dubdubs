@@ -81,7 +81,7 @@ def main(request):
             supabase: Client = create_client(url, key)
 
             try:
-                supabase.table('captions').insert(
+                supabase.table('captions').update(
                     {'history': [{"event": "created_at", "timestamp": time.time()}],
                      'language': transcript['language'],
                      'timestamped_captions': [json.loads(json.dumps(transcript))],
